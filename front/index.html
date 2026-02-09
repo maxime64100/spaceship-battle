@@ -263,6 +263,84 @@
     .hidden {
       display: none !important;
     }
+
+    /* Modal Styles */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: #0a0a1e;
+      border: 2px solid #00ffff;
+      padding: 2rem;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 0 30px rgba(0, 255, 255, 0.4);
+      min-width: 320px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .btn-cyan { background: #00ffff; color: #000; }
+    .btn-pink { background: #ff00ff; color: #fff; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: rgba(0, 255, 255, 0.2);
+      border: 1px solid #00ffff;
+      padding: 1rem 2rem;
+      border-radius: 8px;
+      z-index: 2000;
+      backdrop-filter: blur(5px);
+      animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    /* User List Button */
+    .challenge-btn {
+      margin-left: auto;
+      width: auto !important;
+      padding: 4px 12px !important;
+      font-size: 0.7rem !important;
+      background: transparent !important;
+      border: 1px solid #00ffff !important;
+      color: #00ffff !important;
+    }
+
+    .challenge-btn:hover {
+      background: #00ffff !important;
+      color: #000 !important;
+    }
+
+    #user-list li {
+      padding: 0.7rem;
+      border-bottom: 1px solid #222;
+      color: #00ffff;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
     </style>
   </head>
 
@@ -282,7 +360,8 @@
           <div class="lobby-sidebar">
             <p class="section-title">Pilots in Sector</p>
             <ul id="user-list"></ul>
-            <button id="start-btn">ENGAGE</button>
+            <!-- Bouton caché, on utilise le tchat et les challenges -->
+            <button id="start-btn" class="hidden">ENGAGE</button>
           </div>
           <div class="lobby-chat">
             <p class="section-title">Fleet Frequency</p>
@@ -298,6 +377,22 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Interface de Challenge -->
+    <div id="challenge-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3 id="challenge-text">CHALLENGE RECEIVED</h3>
+        <p id="challenge-from">Incoming duel request from Pilot [Name]</p>
+        <div class="modal-actions">
+          <button id="accept-challenge-btn" class="btn-cyan">ACCEPT</button>
+          <button id="decline-challenge-btn" class="btn-pink">DECLINE</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="notification-toast" class="toast hidden">
+      <p id="toast-text">Message here</p>
     </div>
     <div id="app">
       <div class="scanlines"></div>

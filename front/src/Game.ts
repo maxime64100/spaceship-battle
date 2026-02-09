@@ -2,6 +2,7 @@ import * as PIXI from 'pixi.js';
 import { Player } from './Player.ts';
 import { Laser } from './Laser.ts';
 import { InputManager } from './InputManager.ts';
+import { Socket } from 'socket.io-client';
 
 export class Game {
     private app: PIXI.Application;
@@ -9,6 +10,9 @@ export class Game {
     private lasers: Laser[] = [];
     private input: InputManager;
     private map: PIXI.Graphics;
+    private socket: Socket | null = null;
+    private matchID: string | null = null;
+    private localSide: string | null = null;
 
     // UI Elements
     private uiContainer: PIXI.Container;
@@ -31,7 +35,14 @@ export class Game {
         this.p2HealthBar = new PIXI.Graphics();
     }
 
-    public async init() {
+    public setSocket(socket: Socket) {
+        this.socket = socket;
+    }
+
+    public async init(matchID: string, localSide: string) {
+        this.matchID = matchID;
+        this.localSide = localSide;
+
         const container = document.getElementById('app');
         if (!container) return;
 
@@ -42,6 +53,10 @@ export class Game {
             antialias: true,
         });
 
+        const existingCanvas = container.querySelector('canvas');
+        if (existingCanvas) {
+            existingCanvas.remove();
+        }
         container.appendChild(this.app.canvas);
 
         this.app.stage.addChild(this.map);
@@ -61,15 +76,12 @@ export class Game {
         this.players.push(p2);
         this.app.stage.addChild(p2);
 
-        // Setup UI
         this.app.stage.addChild(this.uiContainer);
         this.uiContainer.addChild(this.p1HealthBar);
         this.uiContainer.addChild(this.p2HealthBar);
 
-        // Boucle de jeu
-        this.app.ticker.add((delta) => this.update(delta.deltaTime));
+        this.app.ticker.add((ticker) => this.update(ticker.deltaTime));
 
-        // Redimensionnement
         window.addEventListener('resize', () => {
             const newContainer = document.getElementById('app');
             if (newContainer) {
@@ -80,26 +92,46 @@ export class Game {
         });
 
         this.drawUI();
+
+            if (this.socket) {
+            this.socket.off('player-moved'); 
+            this.socket.off('player-shot');
+
+            this.socket.on('player-moved', (data: { side: string, x: number, y: number, rotation: number }) => {
+                if (data.side !== this.localSide) {
+                    const target = data.side === 'left' ? this.players.find(p => p.id === 'player1') : this.players.find(p => p.id === 'player2');
+                    if (target) {
+                        target.x = data.x;
+                        target.y = data.y;
+                        target.rotation = data.rotation;
+                    }
+                }
+            });
+
+            this.socket.on('player-shot', (data: { side: string }) => {
+                if (data.side !== this.localSide) {
+                    const target = data.side === 'left' ? this.players.find(p => p.id === 'player1') : this.players.find(p => p.id === 'player2');
+                    if (target) {
+                        this.shoot(target, data.side === 'left' ? this.COLOR_P1 : this.COLOR_P2);
+                    }
+                }
+            });
+        }
     }
 
     private drawMap() {
         this.map.clear();
-
-        // Fond Noir
         this.map.rect(0, 0, this.app.screen.width, this.app.screen.height);
         this.map.fill(0x000000);
 
-        // Grille TRON
         const gridSize = 50;
         this.map.setStrokeStyle({ width: 1, color: this.COLOR_GRID, alpha: 0.5 });
 
-        // Lignes Verticales
         for (let x = 0; x <= this.app.screen.width; x += gridSize) {
             this.map.moveTo(x, 0);
             this.map.lineTo(x, this.app.screen.height);
         }
 
-        // Lignes Horizontales
         for (let y = 0; y <= this.app.screen.height; y += gridSize) {
             this.map.moveTo(0, y);
             this.map.lineTo(this.app.screen.width, y);
@@ -115,14 +147,11 @@ export class Game {
         const barHeight = 20;
         const margin = 30;
 
-        // P1 Health Bar
         if (p1) {
             this.p1HealthBar.clear();
-            // Bordure néon
             this.p1HealthBar.setStrokeStyle({ width: 2, color: this.COLOR_P1 });
             this.p1HealthBar.rect(margin, margin, barWidth, barHeight);
             this.p1HealthBar.stroke();
-            // Vie
             const p1LifeWidth = (p1.health / p1.maxHealth) * barWidth;
             if (p1LifeWidth > 0) {
                 this.p1HealthBar.rect(margin, margin, p1LifeWidth, barHeight);
@@ -130,65 +159,57 @@ export class Game {
             }
         }
 
-        // P2 Health Bar
         if (p2) {
             this.p2HealthBar.clear();
             const p2X = this.app.screen.width - barWidth - margin;
-            // Bordure néon
             this.p2HealthBar.setStrokeStyle({ width: 2, color: this.COLOR_P2 });
             this.p2HealthBar.rect(p2X, margin, barWidth, barHeight);
             this.p2HealthBar.stroke();
-            // Vie
             const p2LifeWidth = (p2.health / p2.maxHealth) * barWidth;
             if (p2LifeWidth > 0) {
                 this.p2HealthBar.rect(p2X + (barWidth - p2LifeWidth), margin, p2LifeWidth, barHeight);
                 this.p2HealthBar.fill({ color: this.COLOR_P2, alpha: 0.8 });
             }
         }
-
-        if (this.gameOverText) {
-            this.gameOverText.x = this.app.screen.width / 2;
-            this.gameOverText.y = this.app.screen.height / 2;
-        }
     }
 
     private update(delta: number) {
         if (this.isGameOver) return;
 
-        const p1 = this.players.find(p => p.id === 'player1');
-        const p2 = this.players.find(p => p.id === 'player2');
+        const localSideId = this.localSide === 'left' ? 'player1' : 'player2';
+        const localPlayer = this.players.find(p => p.id === localSideId);
 
         const speed = 6 * delta;
 
-        // P1 (ZQSD)
-        if (p1) {
-            let p1dx = 0; let p1dy = 0;
-            if (this.input.isKeyDown('KeyW')) p1dy -= speed;
-            if (this.input.isKeyDown('KeyS')) p1dy += speed;
-            if (this.input.isKeyDown('KeyA')) p1dx -= speed;
-            if (this.input.isKeyDown('KeyD')) p1dx += speed;
+        if (localPlayer) {
+            let dx = 0; let dy = 0;
+            if (this.input.isKeyDown('KeyW') || this.input.isKeyDown('ArrowUp')) dy -= speed;
+            if (this.input.isKeyDown('KeyS') || this.input.isKeyDown('ArrowDown')) dy += speed;
+            if (this.input.isKeyDown('KeyA') || this.input.isKeyDown('ArrowLeft')) dx -= speed;
+            if (this.input.isKeyDown('KeyD') || this.input.isKeyDown('ArrowRight')) dx += speed;
 
-            if (p1dx !== 0 || p1dy !== 0) {
-                p1.move(p1dx, p1dy, Math.atan2(p1dy, p1dx) + Math.PI / 2);
+            if (dx !== 0 || dy !== 0) {
+                localPlayer.move(dx, dy, Math.atan2(dy, dx) + Math.PI / 2);
+                if (this.socket && this.matchID) {
+                    this.socket.emit('input', { 
+                        matchID: this.matchID, 
+                        action: 'move', 
+                        x: localPlayer.x, 
+                        y: localPlayer.y,
+                        rotation: localPlayer.rotation
+                    });
+                }
             }
-            if (this.input.isKeyDown('Space')) this.shoot(p1, this.COLOR_P1);
-            p1.contain(this.app.screen.width, this.app.screen.height);
+            if (this.input.isKeyDown('Space') || this.input.isKeyDown('Enter')) {
+                this.shoot(localPlayer, this.localSide === 'left' ? this.COLOR_P1 : this.COLOR_P2);
+                if (this.socket && this.matchID) {
+                    this.socket.emit('input', { matchID: this.matchID, action: 'shoot' });
+                }
+            }
+            localPlayer.contain(this.app.screen.width, this.app.screen.height);
         }
 
-        // P2 (Arrows)
-        if (p2) {
-            let p2dx = 0; let p2dy = 0;
-            if (this.input.isKeyDown('ArrowUp')) p2dy -= speed;
-            if (this.input.isKeyDown('ArrowDown')) p2dy += speed;
-            if (this.input.isKeyDown('ArrowLeft')) p2dx -= speed;
-            if (this.input.isKeyDown('ArrowRight')) p2dx += speed;
-
-            if (p2dx !== 0 || p2dy !== 0) {
-                p2.move(p2dx, p2dy, Math.atan2(p2dy, p2dx) + Math.PI / 2);
-            }
-            if (this.input.isKeyDown('Enter')) this.shoot(p2, this.COLOR_P2);
-            p2.contain(this.app.screen.width, this.app.screen.height);
-        }
+        this.drawUI();
 
         // Lasers & Collisions
         for (let i = this.lasers.length - 1; i >= 0; i--) {
@@ -200,7 +221,7 @@ export class Game {
                     const dx = laser.x - player.x;
                     const dy = laser.y - player.y;
                     if (Math.sqrt(dx * dx + dy * dy) < 22) {
-                        player.takeDamage(20);
+                        player.takeDamage(10);
                         this.removeLaser(i);
                         this.drawUI();
                         this.checkGameOver();
@@ -222,11 +243,14 @@ export class Game {
         let winner = '';
         let winnerColor = '';
         if (p1 && p1.health <= 0) { winner = 'JOUEUR 2 (ROSE)'; winnerColor = '#ff00ff'; }
-        if (p2 && p2.health <= 0) { winner = 'JOUEUR 1 (CYAN)'; winnerColor = '#00ffff'; }
+        else if (p2 && p2.health <= 0) { winner = 'JOUEUR 1 (CYAN)'; winnerColor = '#00ffff'; }
 
         if (winner) {
             this.isGameOver = true;
             this.showWinScreen(winner, winnerColor);
+            setTimeout(() => {
+                window.location.reload();
+            }, 5000);
         }
     }
 

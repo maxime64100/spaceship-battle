@@ -30,7 +30,10 @@ io.on('connection', (socket) => {
         users[socket.id] = { username };
         console.log(`${username} joined the lobby`);
         
-        io.emit('user-list', Object.values(users).map(u => u.username));
+        io.emit('user-list', Object.keys(users).map(id => ({
+            id: id,
+            username: users[id].username
+        })));
     });
 
     socket.on('chat-message', (message) => {
@@ -44,6 +47,56 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('send-challenge', ({ targetSocketId }) => {
+        const challenger = users[socket.id];
+        const target = users[targetSocketId];
+
+        if (challenger && target) {
+            console.log(`${challenger.username} challenged ${target.username}`);
+            io.to(targetSocketId).emit('receive-challenge', {
+                fromUsername: challenger.username,
+                fromSocketId: socket.id
+            });
+        }
+    });
+
+    socket.on('challenge-response', ({ challengerSocketId, accepted }) => {
+        const challenger = users[challengerSocketId];
+        const target = users[socket.id];
+
+        if (accepted && challenger && target) {
+            const matchID = `match_${challengerSocketId}_${socket.id}`;
+            console.log(`Match started: ${matchID}`);
+
+            matches[matchID] = {
+                id: matchID,
+                players: [challengerSocketId, socket.id],
+                gameState: {
+                    players: {
+                        [challengerSocketId]: { x: 100, y: 300, side: 'left' },
+                        [socket.id]: { x: 700, y: 300, side: 'right' }
+                    },
+                    projectiles: []
+                }
+            };
+
+            socket.join(matchID);
+            io.sockets.sockets.get(challengerSocketId)?.join(matchID);
+
+            io.to(matchID).emit('match-start', {
+                matchID,
+                players: [
+                    { id: challengerSocketId, username: challenger.username, side: 'left' },
+                    { id: socket.id, username: target.username, side: 'right' }
+                ]
+            });
+        } else if (!accepted && challenger) {
+            io.to(challengerSocketId).emit('challenge-declined', {
+                fromUsername: target ? target.username : 'Unknown'
+            });
+        }
+    });
+
     socket.on('input', (data) => {
         const match = matches[data.matchID];
         if (!match || !match.players.includes(socket.id)) return;
@@ -51,28 +104,41 @@ io.on('connection', (socket) => {
         const playerShip = match.gameState.players[socket.id];
         if (!playerShip) return;
     
-        const speed = 5;
-        switch(data.action) {
-          case 'up': playerShip.y -= speed; break;
-          case 'down': playerShip.y += speed; break;
-          case 'left': playerShip.x -= speed; break;
-          case 'right': playerShip.x += speed; break;
-          case 'shoot':
-            match.gameState.projectiles.push({
-              x: playerShip.x + 10,
-              y: playerShip.y,
-              owner: socket.id,
-              speed: 10
+        const side = playerShip.side;
+
+        if (data.action === 'move') {
+            playerShip.x = data.x;
+            playerShip.y = data.y;
+            playerShip.rotation = data.rotation;
+            
+            // Broadcast to opponent
+            socket.to(data.matchID).emit('player-moved', {
+                side: side,
+                x: data.x,
+                y: data.y,
+                rotation: data.rotation
             });
-            break;
+        } else if (data.action === 'shoot') {
+            // Broadcast to opponent
+            socket.to(data.matchID).emit('player-shot', { side: side });
+            
+            match.gameState.projectiles.push({
+                x: playerShip.x + (side === 'left' ? 10 : -10),
+                y: playerShip.y,
+                owner: socket.id,
+                speed: side === 'left' ? 10 : -10
+            });
         }
-      });
+    });
 
     socket.on('disconnect', () => {
         if (users[socket.id]) {
             console.log(`${users[socket.id].username} disconnected`);
             delete users[socket.id];
-            io.emit('user-list', Object.values(users).map(u => u.username));
+            io.emit('user-list', Object.keys(users).map(id => ({
+                id: id,
+                username: users[id].username
+            })));
         }
 
         if (players[socket.id]) {
