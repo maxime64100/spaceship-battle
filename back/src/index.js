@@ -8,9 +8,15 @@ const matches = {};
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+    }
+});
 
 const PORT = process.env.PORT || 3000;
+
+const users = {};
 
 app.get('/', (req, res) => {
   res.send('Space Battleship server is running');
@@ -20,28 +26,22 @@ app.get('/', (req, res) => {
 io.on('connection', (socket) => {
   console.log(`Un joueur est connecté : ${socket.id}`);
 
-  // ---------------- INSCRIPTION ----------------
-  socket.on('register', (username) => {
-    players[socket.id] = { username, status: 'lobby' };
-    io.emit('playersUpdate', players);
-  });
+    socket.on('join-lobby', (username) => {
+        users[socket.id] = { username };
+        console.log(`${username} joined the lobby`);
+        
+        io.emit('user-list', Object.values(users).map(u => u.username));
+    });
 
-  // ---------------- INVITATIONS ----------------
-  socket.on('invite', (targetId) => {
-    if (players[targetId] && players[socket.id].status === 'lobby') {
-      io.to(targetId).emit('invitation', { from: socket.id, username: players[socket.id].username });
-    }
-  });
-
-  socket.on('acceptInvite', (fromId) => {
-    const matchID = `match_${Date.now()}`;
-    matches[matchID] = { players: [fromId, socket.id], spectators: [], gameState: {} };
-
-    io.sockets.sockets.get(fromId).join(matchID);
-    socket.join(matchID);
-
-    players[fromId].status = 'ingame';
-    players[socket.id].status = 'ingame';
+    socket.on('disconnect', () => {
+        if (users[socket.id]) {
+            console.log(`${users[socket.id].username} disconnected`);
+            delete users[socket.id];
+            io.emit('user-list', Object.values(users).map(u => u.username));
+        }
+        console.log('User disconnected:', socket.id);
+    });
+});
 
     io.to(matchID).emit('matchStart', { matchID, players: matches[matchID].players });
     io.emit('playersUpdate', players);
