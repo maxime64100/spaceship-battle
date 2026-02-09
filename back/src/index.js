@@ -3,8 +3,8 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { updateGameState } = require('../gameUtils');
 
-const players = {}; 
-const matches = {}; 
+const players = {};
+const matches = {};
 
 const app = express();
 const server = http.createServer(app);
@@ -19,17 +19,17 @@ const PORT = process.env.PORT || 3000;
 const users = {};
 
 app.get('/', (req, res) => {
-  res.send('Space Battleship server is running');
+    res.send('Space Battleship server is running');
 });
 
 
 io.on('connection', (socket) => {
-  console.log(`Un joueur est connecté : ${socket.id}`);
+    console.log(`Un joueur est connecté : ${socket.id}`);
 
     socket.on('join-lobby', (username) => {
         users[socket.id] = { username };
         console.log(`${username} joined the lobby`);
-        
+
         io.emit('user-list', Object.keys(users).map(id => ({
             id: id,
             username: users[id].username
@@ -73,8 +73,8 @@ io.on('connection', (socket) => {
                 players: [challengerSocketId, socket.id],
                 gameState: {
                     players: {
-                        [challengerSocketId]: { x: 100, y: 300, side: 'left' },
-                        [socket.id]: { x: 700, y: 300, side: 'right' }
+                        [challengerSocketId]: { x: 100, y: 300, side: 'left', health: 100 },
+                        [socket.id]: { x: 700, y: 300, side: 'right', health: 100 }
                     },
                     projectiles: []
                 }
@@ -100,17 +100,17 @@ io.on('connection', (socket) => {
     socket.on('input', (data) => {
         const match = matches[data.matchID];
         if (!match || !match.players.includes(socket.id)) return;
-    
+
         const playerShip = match.gameState.players[socket.id];
         if (!playerShip) return;
-    
+
         const side = playerShip.side;
 
         if (data.action === 'move') {
             playerShip.x = data.x;
             playerShip.y = data.y;
             playerShip.rotation = data.rotation;
-            
+
             // Broadcast to opponent
             socket.to(data.matchID).emit('player-moved', {
                 side: side,
@@ -121,13 +121,30 @@ io.on('connection', (socket) => {
         } else if (data.action === 'shoot') {
             // Broadcast to opponent
             socket.to(data.matchID).emit('player-shot', { side: side });
-            
+
             match.gameState.projectiles.push({
                 x: playerShip.x + (side === 'left' ? 10 : -10),
                 y: playerShip.y,
                 owner: socket.id,
                 speed: side === 'left' ? 10 : -10
             });
+        } else if (data.action === 'hit') {
+            const match = matches[data.matchID];
+            if (!match) return;
+
+            const targetSide = data.targetSide;
+            const targetId = Object.keys(match.gameState.players).find(id => match.gameState.players[id].side === targetSide);
+
+            if (targetId) {
+                const targetPlayer = match.gameState.players[targetId];
+                targetPlayer.health = Math.max(0, targetPlayer.health - 10);
+
+                // Broadcast health update to everyone in the match
+                io.to(data.matchID).emit('health-update', {
+                    side: targetSide,
+                    health: targetPlayer.health
+                });
+            }
         }
     });
 
@@ -152,13 +169,13 @@ io.on('connection', (socket) => {
 
 const FPS = 30;
 setInterval(() => {
-  for (const matchID in matches) {
-    const match = matches[matchID];
-    if (match.players.length === 2) {
-      updateGameState(match);
-      io.to(matchID).emit('gameState', match.gameState);
+    for (const matchID in matches) {
+        const match = matches[matchID];
+        if (match.players.length === 2) {
+            updateGameState(match);
+            io.to(matchID).emit('gameState', match.gameState);
+        }
     }
-  }
 }, 1000 / FPS);
 
 server.listen(PORT, () => console.log(`Server is listening on port ${PORT}`));

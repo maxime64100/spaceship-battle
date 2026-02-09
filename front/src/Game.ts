@@ -93,8 +93,8 @@ export class Game {
 
         this.drawUI();
 
-            if (this.socket) {
-            this.socket.off('player-moved'); 
+        if (this.socket) {
+            this.socket.off('player-moved');
             this.socket.off('player-shot');
 
             this.socket.on('player-moved', (data: { side: string, x: number, y: number, rotation: number }) => {
@@ -114,6 +114,16 @@ export class Game {
                     if (target) {
                         this.shoot(target, data.side === 'left' ? this.COLOR_P1 : this.COLOR_P2);
                     }
+                }
+            });
+
+            this.socket.on('health-update', (data: { side: string, health: number }) => {
+                const targetId = data.side === 'left' ? 'player1' : 'player2';
+                const target = this.players.find(p => p.id === targetId);
+                if (target) {
+                    target.health = data.health;
+                    this.drawUI();
+                    this.checkGameOver();
                 }
             });
         }
@@ -191,10 +201,10 @@ export class Game {
             if (dx !== 0 || dy !== 0) {
                 localPlayer.move(dx, dy, Math.atan2(dy, dx) + Math.PI / 2);
                 if (this.socket && this.matchID) {
-                    this.socket.emit('input', { 
-                        matchID: this.matchID, 
-                        action: 'move', 
-                        x: localPlayer.x, 
+                    this.socket.emit('input', {
+                        matchID: this.matchID,
+                        action: 'move',
+                        x: localPlayer.x,
                         y: localPlayer.y,
                         rotation: localPlayer.rotation
                     });
@@ -221,10 +231,16 @@ export class Game {
                     const dx = laser.x - player.x;
                     const dy = laser.y - player.y;
                     if (Math.sqrt(dx * dx + dy * dy) < 22) {
-                        player.takeDamage(10);
+                        // Seul le tireur rapporte le coup pour éviter les doublons
+                        if (this.socket && this.matchID && laser.ownerId === localSideId) {
+                            this.socket.emit('input', {
+                                matchID: this.matchID,
+                                action: 'hit',
+                                targetSide: player.id === 'player1' ? 'left' : 'right'
+                            });
+                        }
+
                         this.removeLaser(i);
-                        this.drawUI();
-                        this.checkGameOver();
                         break;
                     }
                 }
