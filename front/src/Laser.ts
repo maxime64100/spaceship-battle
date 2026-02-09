@@ -1,21 +1,28 @@
 import * as PIXI from 'pixi.js';
 
 export class Laser extends PIXI.Graphics {
+    public ownerId: string;
     public velocity: { x: number, y: number };
-    public speed: number = 10;
+    public speed: number = 12;
 
-    constructor(x: number, y: number, rotation: number) {
+    constructor(ownerId: string, x: number, y: number, rotation: number, color: number = 0xffffff) {
         super();
+        this.ownerId = ownerId;
 
-        // Dessiner le laser (un petit trait rouge)
-        this.rect(-2, -10, 4, 20);
-        this.fill(0xff0000);
+        // Corps du laser
+        this.rect(-1.5, -12, 3, 24);
+        this.fill({ color: color, alpha: 1 });
+
+        // Lueur néon autour laser
+        this.setStrokeStyle({ width: 4, color: color, alpha: 0.4 });
+        this.rect(-2.5, -13, 5, 26);
+        this.stroke();
 
         this.x = x;
         this.y = y;
         this.rotation = rotation;
 
-        // Calculer la vélocité basée sur la rotation
+        // Vélocité
         this.velocity = {
             x: Math.sin(rotation) * this.speed,
             y: -Math.cos(rotation) * this.speed

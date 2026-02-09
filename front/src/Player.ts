@@ -1,35 +1,41 @@
 import * as PIXI from 'pixi.js';
 
 export class Player extends PIXI.Container {
+    public id: string;
     private body: PIXI.Graphics;
+
+    public maxHealth: number = 100;
+    public health: number = 100;
+
     public lastShotTime: number = 0;
     public shootInterval: number = 250; // ms
 
-    constructor(color: number = 0x00ff00) {
+    constructor(id: string, color: number = 0x00ff00) {
         super();
+        this.id = id;
 
         this.body = new PIXI.Graphics();
 
-        // Dessiner un triangle (vaisseau)
+        // Vaisseau du joueur (style Neon TRON)
+        this.body.setStrokeStyle({ width: 3, color: color });
         this.body.poly([
-            0, -20,   // Sommet
-            15, 15,   // Bas droite
-            -15, 15   // Bas gauche
+            0, -22,   // Sommet
+            18, 16,   // Bas droite
+            0, 4,     // Creux arrière
+            -18, 16   // Bas gauche
         ]);
-        this.body.fill(color);
+        this.body.closePath();
+        this.body.stroke();
+
+        // Cœur néon intérieur avec alpha
+        this.body.circle(0, 0, 5);
+        this.body.fill({ color: color, alpha: 0.4 });
 
         this.addChild(this.body);
     }
 
-    public update(targetX: number, targetY: number) {
-        // Suivre la position cible (souris)
-        this.x += (targetX - this.x) * 0.1;
-        this.y += (targetY - this.y) * 0.1;
-
-        // Rotation vers la cible
-        const dx = targetX - this.x;
-        const dy = targetY - this.y;
-        this.rotation = Math.atan2(dy, dx) + Math.PI / 2;
+    public takeDamage(amount: number) {
+        this.health = Math.max(0, this.health - amount);
     }
 
     public move(dx: number, dy: number, rotation: number) {
