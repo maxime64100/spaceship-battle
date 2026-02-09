@@ -1,109 +1,195 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Spaceship Battle - Prototype</title>
-    <style>
-      body {
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-        background-color: #000;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-        width: 100vw;
-        color: #fff;
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spaceship Battle - Prototype</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      width: 100vw;
+      color: #fff;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    canvas {
+      display: block;
+      filter: contrast(1.1) brightness(1.1) saturate(1.2);
+    }
+
+    #app {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    /* Scanlines */
+    .scanlines {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(to bottom,
+          rgba(18, 16, 16, 0) 50%,
+          rgba(0, 0, 0, 0.25) 50%);
+      background-size: 100% 4px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    /* Vignette distortion */
+    .crt-vignette {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(circle,
+          transparent 50%,
+          rgba(0, 0, 0, 0.6) 100%);
+      z-index: 11;
+      pointer-events: none;
+    }
+
+    /* Flicker effect */
+    @keyframes flicker {
+      0% {
+        opacity: 0.04;
       }
-      canvas {
-        display: block;
+
+      5% {
+        opacity: 0.02;
       }
-      #lobby-container {
-        position: absolute;
-        z-index: 10;
-        background: rgba(10, 10, 30, 0.9);
-        border: 2px solid #4a9eff;
-        padding: 2rem;
-        border-radius: 12px;
-        box-shadow: 0 0 20px rgba(74, 158, 255, 0.5);
-        text-align: center;
-        min-width: 300px;
+
+      10% {
+        opacity: 0.03;
       }
-      #lobby-container h2 {
-        color: #4a9eff;
-        margin-top: 0;
-        text-transform: uppercase;
-        letter-spacing: 2px;
+
+      100% {
+        opacity: 0.04;
       }
-      #user-list {
-        list-style: none;
-        padding: 0;
-        margin: 1.5rem 0;
-        max-height: 200px;
-        overflow-y: auto;
-        border: 1px solid #333;
-        border-radius: 4px;
-        background: rgba(0, 0, 0, 0.3);
-      }
-      #user-list li {
-        padding: 0.5rem;
-        border-bottom: 1px solid #222;
-        color: #aaa;
-      }
-      #user-list li:last-child {
-        border-bottom: none;
-      }
-      input {
-        padding: 0.8rem;
-        border-radius: 4px;
-        border: 1px solid #4a9eff;
-        background: #000;
-        color: #fff;
-        width: calc(100% - 1.6rem);
-        margin-bottom: 1rem;
-      }
-      button {
-        padding: 0.8rem 1.5rem;
-        border-radius: 4px;
-        border: none;
-        background: #4a9eff;
-        color: #000;
-        font-weight: bold;
-        cursor: pointer;
-        width: 100%;
-        transition: all 0.2s;
-      }
-      button:hover {
-        background: #75b5ff;
-        transform: scale(1.02);
-      }
-      .hidden {
-        display: none !important;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="lobby-container">
-      <h2>Space Lobby</h2>
-      <div id="setup-view">
-        <input
-          type="text"
-          id="username-input"
-          placeholder="Enter your pilot name..."
-        />
-        <button id="join-btn">JOIN LOBBY</button>
-      </div>
-      <div id="lobby-view" class="hidden">
-        <p>Pilots in Sector:</p>
-        <ul id="user-list"></ul>
-        <button id="start-btn">ENGAGE</button>
-      </div>
+    }
+
+    .flicker {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255, 255, 255, 0.2);
+      opacity: 0.03;
+      z-index: 12;
+      pointer-events: none;
+      animation: flicker 0.15s infinite;
+    }
+
+    #lobby-container {
+      position: absolute;
+      z-index: 100;
+      background: rgba(10, 10, 30, 0.95);
+      border: 2px solid #00ffff;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+      text-align: center;
+      min-width: 300px;
+    }
+
+    #lobby-container h2 {
+      color: #00ffff;
+      margin-top: 0;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    #user-list {
+      list-style: none;
+      padding: 0;
+      margin: 1.5rem 0;
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #333;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    #user-list li {
+      padding: 0.5rem;
+      border-bottom: 1px solid #222;
+      color: #aaa;
+    }
+
+    #user-list li:last-child {
+      border-bottom: none;
+    }
+
+    input {
+      padding: 0.8rem;
+      border-radius: 4px;
+      border: 1px solid #00ffff;
+      background: #000;
+      color: #fff;
+      width: calc(100% - 1.6rem);
+      margin-bottom: 1rem;
+    }
+
+    button {
+      padding: 0.8rem 1.5rem;
+      border-radius: 4px;
+      border: none;
+      background: #00ffff;
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      background: #75ffff;
+      transform: scale(1.02);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="lobby-container">
+    <h2>Space Lobby</h2>
+    <div id="setup-view">
+      <input type="text" id="username-input" placeholder="Enter your pilot name..." />
+      <button id="join-btn">JOIN LOBBY</button>
     </div>
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
+    <div id="lobby-view" class="hidden">
+      <p>Pilots in Sector:</p>
+      <ul id="user-list"></ul>
+      <button id="start-btn">ENGAGE</button>
+    </div>
+  </div>
+  <div id="app">
+    <div class="scanlines"></div>
+    <div class="crt-vignette"></div>
+    <div class="flicker"></div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
 </html>

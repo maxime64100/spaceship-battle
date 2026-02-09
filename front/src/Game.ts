@@ -32,14 +32,17 @@ export class Game {
     }
 
     public async init() {
+        const container = document.getElementById('app');
+        if (!container) return;
+
         await this.app.init({
-            width: window.innerWidth,
-            height: window.innerHeight,
+            width: container.clientWidth,
+            height: container.clientHeight,
             backgroundColor: 0x000000,
             antialias: true,
         });
 
-        document.getElementById('app')?.appendChild(this.app.canvas);
+        container.appendChild(this.app.canvas);
 
         this.app.stage.addChild(this.map);
         this.drawMap();
@@ -68,9 +71,12 @@ export class Game {
 
         // Redimensionnement
         window.addEventListener('resize', () => {
-            this.app.renderer.resize(window.innerWidth, window.innerHeight);
-            this.drawMap();
-            this.drawUI();
+            const newContainer = document.getElementById('app');
+            if (newContainer) {
+                this.app.renderer.resize(newContainer.clientWidth, newContainer.clientHeight);
+                this.drawMap();
+                this.drawUI();
+            }
         });
 
         this.drawUI();
