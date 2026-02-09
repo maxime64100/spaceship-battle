@@ -12,6 +12,9 @@ const usernameInput = document.getElementById('username-input') as HTMLInputElem
 const joinBtn = document.getElementById('join-btn') as HTMLButtonElement;
 const startBtn = document.getElementById('start-btn') as HTMLButtonElement;
 const userList = document.getElementById('user-list') as HTMLUListElement;
+const chatMessages = document.getElementById('chat-messages') as HTMLDivElement;
+const chatInput = document.getElementById('chat-input') as HTMLInputElement;
+const sendMsgBtn = document.getElementById('send-msg-btn') as HTMLButtonElement;
 
 // Handle joining the lobby
 joinBtn.onclick = () => {
@@ -23,6 +26,20 @@ joinBtn.onclick = () => {
     } else {
         alert('Please enter a pilot name!');
     }
+};
+
+// Handle sending chat messages
+const sendMessage = () => {
+    const message = chatInput.value.trim();
+    if (message) {
+        socket.emit('chat-message', message);
+        chatInput.value = '';
+    }
+};
+
+sendMsgBtn.onclick = sendMessage;
+chatInput.onkeydown = (e) => {
+    if (e.key === 'Enter') sendMessage();
 };
 
 // Handle starting the game
@@ -41,6 +58,18 @@ socket.on('user-list', (users: string[]) => {
         li.textContent = username;
         userList.appendChild(li);
     });
+});
+
+socket.on('new-message', (data: { username: string, message: string, time: string }) => {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'message';
+    msgDiv.innerHTML = `
+        <span class="time">[${data.time}]</span>
+        <span class="user">${data.username}:</span>
+        <span class="text">${data.message}</span>
+    `;
+    chatMessages.appendChild(msgDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
 });
 
 socket.on('connect', () => {

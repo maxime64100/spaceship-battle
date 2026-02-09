@@ -1,127 +1,149 @@
 <!doctype html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spaceship Battle - Prototype</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background-color: #000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        width: 100vw;
+        color: #fff;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
 
-<head>
-  <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Spaceship Battle - Prototype</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      background-color: #000;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      width: 100vw;
-      color: #fff;
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-    }
+      canvas {
+        display: block;
+        filter: contrast(1.1) brightness(1.1) saturate(1.2);
+      }
 
-    canvas {
-      display: block;
-      filter: contrast(1.1) brightness(1.1) saturate(1.2);
-    }
+      #app {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        background: #000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+      }
 
-    #app {
-      position: relative;
-      width: 100vw;
-      height: 100vh;
-      background: #000;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      overflow: hidden;
-    }
-
-    /* Scanlines */
-    .scanlines {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: linear-gradient(to bottom,
+      /* Scanlines */
+      .scanlines {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(
+          to bottom,
           rgba(18, 16, 16, 0) 50%,
-          rgba(0, 0, 0, 0.25) 50%);
-      background-size: 100% 4px;
-      z-index: 10;
-      pointer-events: none;
-    }
+          rgba(0, 0, 0, 0.25) 50%
+        );
+        background-size: 100% 4px;
+        z-index: 10;
+        pointer-events: none;
+      }
 
-    /* Vignette distortion */
-    .crt-vignette {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: radial-gradient(circle,
+      /* Vignette distortion */
+      .crt-vignette {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: radial-gradient(
+          circle,
           transparent 50%,
-          rgba(0, 0, 0, 0.6) 100%);
-      z-index: 11;
-      pointer-events: none;
-    }
-
-    /* Flicker effect */
-    @keyframes flicker {
-      0% {
-        opacity: 0.04;
+          rgba(0, 0, 0, 0.6) 100%
+        );
+        z-index: 11;
+        pointer-events: none;
       }
 
-      5% {
-        opacity: 0.02;
+      /* Flicker effect */
+      @keyframes flicker {
+        0% {
+          opacity: 0.04;
+        }
+
+        5% {
+          opacity: 0.02;
+        }
+
+        10% {
+          opacity: 0.03;
+        }
+
+        100% {
+          opacity: 0.04;
+        }
       }
 
-      10% {
+      .flicker {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.2);
         opacity: 0.03;
+        z-index: 12;
+        pointer-events: none;
+        animation: flicker 0.15s infinite;
       }
 
-      100% {
-        opacity: 0.04;
-      }
-    }
-
-    .flicker {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(255, 255, 255, 0.2);
-      opacity: 0.03;
-      z-index: 12;
-      pointer-events: none;
-      animation: flicker 0.15s infinite;
-    }
-
-    #lobby-container {
+      #lobby-container {
       position: absolute;
       z-index: 100;
       background: rgba(10, 10, 30, 0.95);
       border: 2px solid #00ffff;
-      padding: 2rem;
+      padding: 1.5rem;
       border-radius: 12px;
       box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
       text-align: center;
-      min-width: 300px;
+      width: 800px;
+      max-width: 90%;
     }
 
     #lobby-container h2 {
       color: #00ffff;
       margin-top: 0;
+      margin-bottom: 1.5rem;
       text-transform: uppercase;
       letter-spacing: 2px;
+    }
+
+    .lobby-layout {
+      display: grid;
+      grid-template-columns: 250px 1fr;
+      gap: 1.5rem;
+      text-align: left;
+    }
+
+    .section-title {
+      font-size: 0.9rem;
+      color: #00ffff;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+      letter-spacing: 1px;
+      border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+      padding-bottom: 0.3rem;
     }
 
     #user-list {
       list-style: none;
       padding: 0;
-      margin: 1.5rem 0;
-      max-height: 200px;
+      margin: 0 0 1rem 0;
+      height: 300px;
       overflow-y: auto;
       border: 1px solid #333;
       border-radius: 4px;
@@ -129,13 +151,79 @@
     }
 
     #user-list li {
-      padding: 0.5rem;
+      padding: 0.7rem;
       border-bottom: 1px solid #222;
-      color: #aaa;
+      color: #00ffff;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
     }
 
-    #user-list li:last-child {
-      border-bottom: none;
+    #user-list li::before {
+      content: "▶";
+      font-size: 0.6rem;
+      margin-right: 8px;
+    }
+
+    .lobby-chat {
+      display: flex;
+      flex-direction: column;
+      height: 400px;
+    }
+
+    #chat-messages {
+      flex: 1;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid #333;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      padding: 1rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .message {
+      font-size: 0.9rem;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .message .time {
+      color: #555;
+      font-size: 0.75rem;
+      margin-right: 8px;
+    }
+
+    .message .user {
+      color: #00ffff;
+      font-weight: bold;
+      margin-right: 8px;
+    }
+
+    .message .text {
+      color: #ccc;
+      word-break: break-all;
+    }
+
+    .chat-input-container {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .chat-input-container input {
+      flex: 1;
+      margin-bottom: 0;
+    }
+
+    .chat-input-container button {
+      width: auto;
+      padding: 0 1.5rem;
     }
 
     input {
@@ -146,6 +234,11 @@
       color: #fff;
       width: calc(100% - 1.6rem);
       margin-bottom: 1rem;
+      outline: none;
+    }
+
+    input:focus {
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
     }
 
     button {
@@ -158,38 +251,59 @@
       cursor: pointer;
       width: 100%;
       transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 1px;
     }
 
     button:hover {
       background: #75ffff;
-      transform: scale(1.02);
+      box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
     }
 
     .hidden {
       display: none !important;
     }
-  </style>
-</head>
+    </style>
+  </head>
 
-<body>
-  <div id="lobby-container">
-    <h2>Space Lobby</h2>
-    <div id="setup-view">
-      <input type="text" id="username-input" placeholder="Enter your pilot name..." />
-      <button id="join-btn">JOIN LOBBY</button>
+  <body>
+    <div id="lobby-container">
+      <h2>Space Lobby</h2>
+      <div id="setup-view">
+        <input
+          type="text"
+          id="username-input"
+          placeholder="Enter your pilot name..."
+        />
+        <button id="join-btn">JOIN LOBBY</button>
+      </div>
+      <div id="lobby-view" class="hidden">
+        <div class="lobby-layout">
+          <div class="lobby-sidebar">
+            <p class="section-title">Pilots in Sector</p>
+            <ul id="user-list"></ul>
+            <button id="start-btn">ENGAGE</button>
+          </div>
+          <div class="lobby-chat">
+            <p class="section-title">Fleet Frequency</p>
+            <div id="chat-messages"></div>
+            <div class="chat-input-container">
+              <input
+                type="text"
+                id="chat-input"
+                placeholder="Transmit message..."
+              />
+              <button id="send-msg-btn">SEND</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div id="lobby-view" class="hidden">
-      <p>Pilots in Sector:</p>
-      <ul id="user-list"></ul>
-      <button id="start-btn">ENGAGE</button>
+    <div id="app">
+      <div class="scanlines"></div>
+      <div class="crt-vignette"></div>
+      <div class="flicker"></div>
     </div>
-  </div>
-  <div id="app">
-    <div class="scanlines"></div>
-    <div class="crt-vignette"></div>
-    <div class="flicker"></div>
-  </div>
-  <script type="module" src="/src/main.ts"></script>
-</body>
-
+    <script type="module" src="/src/main.ts"></script>
+  </body>
 </html>
